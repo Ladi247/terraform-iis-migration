@@ -105,7 +105,6 @@ pipeline {
 
         always {
             echo "Cleaning workspace..."
-            deleteDir()
         }
     }
 }
