@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
+        TF_VAR_FILE = "terraform.tvar" // updated to match your repo
     }
 
     stages {
@@ -26,14 +26,14 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                bat 'terraform plan -var-file="%TF_VAR_file%"'
+                bat 'terraform plan -var-file="%TF_VAR_FILE%"'
             }
         }
 
         stage('Terraform Apply') {
             steps {
                 input message: 'Approve Terraform Apply?'
-                bat 'terraform apply -auto-approve -var-file="%TF_VAR_file%"'
+                bat 'terraform apply -auto-approve -var-file="%TF_VAR_FILE%"'
             }
         }
     }
