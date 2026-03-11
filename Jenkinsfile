@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        TF_VAR_file = "dev.tfvars"
+        AWS_REGION = "us-east-1"
     }
 
     stages {
