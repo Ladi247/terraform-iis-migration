@@ -16,18 +16,19 @@ pipeline {
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
+                echo "Checking out code from GitHub..."
                 git branch: 'main', url: 'https://github.com/Ladi247/terraform-iis-migration.git'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-terraform-creds'
-                ]]) {
+                echo "Running Terraform Init..."
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     bat 'terraform init'
                 }
             }
@@ -35,7 +36,12 @@ pipeline {
 
         stage('Terraform Validate') {
             steps {
-                bat 'terraform validate'
+                echo "Validating Terraform configuration..."
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    bat 'terraform validate'
+                }
             }
         }
 
@@ -44,10 +50,10 @@ pipeline {
                 expression { params.ACTION == 'PLAN' }
             }
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-terraform-creds'
-                ]]) {
+                echo "Running Terraform Plan..."
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     bat 'terraform plan -var-file="%TF_VAR_FILE%" -out=tfplan'
                 }
             }
@@ -58,14 +64,14 @@ pipeline {
                 expression { params.ACTION == 'APPLY' }
             }
             steps {
+                input message: 'Approve Terraform Apply?'
 
-                input message: "Approve Terraform Apply?"
+                echo "Applying Terraform infrastructure..."
 
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-terraform-creds'
-                ]]) {
-                    bat 'terraform apply -auto-approve -var-file="%TF_VAR_FILE%"'
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    bat 'terraform apply -auto-approve tfplan'
                 }
             }
         }
@@ -75,18 +81,17 @@ pipeline {
                 expression { params.ACTION == 'DESTROY' }
             }
             steps {
+                input message: 'WARNING: Destroy all Terraform infrastructure?'
 
-                input message: "WARNING: Destroy ALL Infrastructure?"
+                echo "Destroying AWS infrastructure..."
 
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-terraform-creds'
-                ]]) {
-                    bat 'terraform destroy -auto-approve -var-file="%TF_VAR_FILE%"'
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    bat 'terraform destroy -var-file="%TF_VAR_FILE%" -auto-approve'
                 }
             }
         }
-
     }
 
     post {
