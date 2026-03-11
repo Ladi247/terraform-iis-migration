@@ -2,41 +2,39 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
+        TF_VAR_file = "dev.tfvars"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                git 'https://github.com/Ladi247/terraform-iis-migration.git'
+                git branch: 'main', url: 'https://github.com/Ladi247/terraform-iis-migration.git'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                sh 'terraform init'
+                bat 'terraform init'
             }
         }
 
         stage('Terraform Validate') {
             steps {
-                sh 'terraform validate'
+                bat 'terraform validate'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -var-file="dev.tfvars"'
+                bat 'terraform plan -var-file="%TF_VAR_file%"'
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                input message: "Approve Terraform Apply?"
-                sh 'terraform apply -auto-approve -var-file="dev.tfvars"'
+                input message: 'Approve Terraform Apply?'
+                bat 'terraform apply -auto-approve -var-file="%TF_VAR_file%"'
             }
         }
-
     }
 }
