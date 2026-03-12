@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'ACTION', choices: ['plan', 'apply', 'destroy'], description: 'Terraform action to perform')
+        choice(name: 'ACTION', choices: ['plan', 'apply', 'destroy'], description: 'Choose Terraform action')
     }
 
     environment {
@@ -14,17 +14,15 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "Checking out code..."
-                git branch: 'main',
-                    url: 'https://github.com/Ladi247/terraform-iis-migration.git',
-                    credentialsId: 'aws-creds'
+                git branch: 'main', url: 'https://github.com/Ladi247/terraform-iis-migration.git', credentialsId: 'aws-creds'
             }
         }
 
         stage('Terraform Init') {
             steps {
                 echo "Initializing Terraform..."
-                withCredentials([usernamePassword(credentialsId: 'aws-creds', 
-                                                 usernameVariable: 'AWS_ACCESS_KEY_ID', 
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     bat 'terraform init'
                 }
@@ -34,8 +32,8 @@ pipeline {
         stage('Terraform Validate') {
             steps {
                 echo "Validating Terraform configuration..."
-                withCredentials([usernamePassword(credentialsId: 'aws-creds', 
-                                                 usernameVariable: 'AWS_ACCESS_KEY_ID', 
+                withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     bat 'terraform validate'
                 }
@@ -45,31 +43,22 @@ pipeline {
         stage('Terraform Action') {
             steps {
                 script {
-                    echo "Selected action: ${params.ACTION}"
-                    withCredentials([usernamePassword(credentialsId: 'aws-creds', 
-                                                     usernameVariable: 'AWS_ACCESS_KEY_ID', 
+                    withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                                     usernameVariable: 'AWS_ACCESS_KEY_ID',
                                                      passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-
                         if (params.ACTION == 'plan') {
-                            echo "Running terraform plan..."
-                            bat 'terraform plan -var-file="%TF_VAR_FILE%" -out=tfplan'
-
+                            echo "Running Terraform Plan..."
+                            bat "terraform plan -var-file=\"%TF_VAR_FILE%\" -out=tfplan"
                         } else if (params.ACTION == 'apply') {
-                            // Check if tfplan exists
-                            if (!fileExists('tfplan')) {
-                                echo "tfplan not found, running plan first..."
-                                bat 'terraform plan -var-file="%TF_VAR_FILE%" -out=tfplan'
-                            }
-                            input message: 'Approve Terraform Apply?'
-                            bat 'terraform apply -auto-approve tfplan'
-
+                            echo "Running Terraform Apply..."
+                            input message: "Approve Terraform Apply?"
+                            bat "terraform apply -auto-approve tfplan"
                         } else if (params.ACTION == 'destroy') {
-                            input message: 'Approve Terraform Destroy?'
-                            // destroy works from current state, no tfplan needed
-                            bat "terraform destroy -auto-approve -var-file=\"%TF_VAR_FILE%\""
-
+                            echo "Running Terraform Destroy..."
+                            input message: "Approve Terraform Destroy?"
+                            bat "terraform destroy -var-file=\"%TF_VAR_FILE%\" -auto-approve"
                         } else {
-                            error "Unknown action: ${params.ACTION}"
+                            error "Unknown ACTION: ${params.ACTION}"
                         }
                     }
                 }
@@ -83,10 +72,10 @@ pipeline {
             deleteDir()
         }
         success {
-            echo "Pipeline completed successfully!"
+            echo "Terraform ${params.ACTION} completed successfully."
         }
         failure {
-            echo "Pipeline failed. Check logs for details."
+            echo "Terraform ${params.ACTION} failed. Check logs for details."
         }
     }
 }
