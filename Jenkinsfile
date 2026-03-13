@@ -24,18 +24,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'aws-creds',
                                                  usernameVariable: 'AWS_ACCESS_KEY_ID',
                                                  passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    bat 'terraform init'
-                }
-            }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                echo "Validating Terraform configuration..."
-                withCredentials([usernamePassword(credentialsId: 'aws-creds',
-                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    bat 'terraform validate'
+                    bat 'terraform init -reconfigure'
                 }
             }
         }
@@ -46,18 +35,24 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'aws-creds',
                                                      usernameVariable: 'AWS_ACCESS_KEY_ID',
                                                      passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+
                         if (params.ACTION == 'plan') {
                             echo "Running Terraform Plan..."
                             bat "terraform plan -var-file=\"%TF_VAR_FILE%\" -out=tfplan"
-                        } else if (params.ACTION == 'apply') {
+                        } 
+                        else if (params.ACTION == 'apply') {
                             echo "Running Terraform Apply..."
+                            // Re-run plan immediately before apply if tfplan is missing
+                            bat "if not exist tfplan terraform plan -var-file=\"%TF_VAR_FILE%\" -out=tfplan"
                             input message: "Approve Terraform Apply?"
                             bat "terraform apply -auto-approve tfplan"
-                        } else if (params.ACTION == 'destroy') {
+                        } 
+                        else if (params.ACTION == 'destroy') {
                             echo "Running Terraform Destroy..."
                             input message: "Approve Terraform Destroy?"
                             bat "terraform destroy -var-file=\"%TF_VAR_FILE%\" -auto-approve"
-                        } else {
+                        } 
+                        else {
                             error "Unknown ACTION: ${params.ACTION}"
                         }
                     }
