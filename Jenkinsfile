@@ -1,81 +1,36 @@
-pipeline {
-    agent any
+stage('Terraform Action') {
+    steps {
+        script {
+            withCredentials([usernamePassword(credentialsId: 'aws-creds',
+                                             usernameVariable: 'AWS_ACCESS_KEY_ID',
+                                             passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
 
-    parameters {
-        choice(name: 'ACTION', choices: ['plan', 'apply', 'destroy'], description: 'Choose Terraform action')
-    }
+                if (params.ACTION == 'plan') {
 
-    environment {
-        TF_VAR_FILE = "terraform.tfvars"
-        AWS_DEFAULT_REGION = "us-east-1"
-    }
+                    echo "Running Terraform Plan..."
+                    bat "terraform plan -var-file=\"%TF_VAR_FILE%\" -out=tfplan"
 
-    stages {
-        stage('Checkout') {
-            steps {
-                echo "Checking out code..."
-                git branch: 'main', url: 'https://github.com/Ladi247/terraform-iis-migration.git', credentialsId: 'aws-creds'
-            }
-        }
+                } else if (params.ACTION == 'apply') {
 
-        stage('Terraform Init') {
-            steps {
-                echo "Initializing Terraform..."
-                withCredentials([usernamePassword(credentialsId: 'aws-creds',
-                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    bat 'terraform init'
+                    echo "Running Terraform Apply..."
+                    input message: "Approve Terraform Apply?"
+
+                    bat "terraform plan -var-file=\"%TF_VAR_FILE%\" -out=tfplan"
+                    bat "terraform apply -auto-approve tfplan"
+
+                } else if (params.ACTION == 'destroy') {
+
+                    echo "Running Terraform Destroy..."
+                    input message: "Approve Terraform Destroy?"
+
+                    bat "terraform destroy -var-file=\"%TF_VAR_FILE%\" -auto-approve"
+
+                } else {
+
+                    error "Unknown ACTION: ${params.ACTION}"
+
                 }
             }
-        }
-
-        stage('Terraform Validate') {
-            steps {
-                echo "Validating Terraform configuration..."
-                withCredentials([usernamePassword(credentialsId: 'aws-creds',
-                                                 usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                                 passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    bat 'terraform validate'
-                }
-            }
-        }
-
-        stage('Terraform Action') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'aws-creds',
-                                                     usernameVariable: 'AWS_ACCESS_KEY_ID',
-                                                     passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                        if (params.ACTION == 'plan') {
-                            echo "Running Terraform Plan..."
-                            bat "terraform plan -var-file=\"%TF_VAR_FILE%\" -out=tfplan"
-                        } else if (params.ACTION == 'apply') {
-                            echo "Running Terraform Apply..."
-                            input message: "Approve Terraform Apply?"
-                            bat "terraform apply -auto-approve tfplan"
-                        } else if (params.ACTION == 'destroy') {
-                            echo "Running Terraform Destroy..."
-                            input message: "Approve Terraform Destroy?"
-                            bat "terraform destroy -var-file=\"%TF_VAR_FILE%\" -auto-approve"
-                        } else {
-                            error "Unknown ACTION: ${params.ACTION}"
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            echo "Cleaning up workspace..."
-            deleteDir()
-        }
-        success {
-            echo "Terraform ${params.ACTION} completed successfully."
-        }
-        failure {
-            echo "Terraform ${params.ACTION} failed. Check logs for details."
         }
     }
 }
